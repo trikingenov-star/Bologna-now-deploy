@@ -8,6 +8,7 @@ import { UserProfileProvider, useUserProfile } from "@/context/UserProfileContex
 import BottomNav from "@/components/BottomNav";
 import Toast from "@/components/Toast";
 import AIAssistant from "@/components/AIAssistant";
+import InstallPrompt from "@/components/InstallPrompt";
 import ExplorePage from "@/pages/ExplorePage";
 import ItineraryPage from "@/pages/ItineraryPage";
 import MapsPage from "@/pages/MapsPage";
@@ -245,6 +246,7 @@ export default function App() {
       <WouterRouter base={basePath}>
         <ClerkProviderWithRoutes />
       </WouterRouter>
+      <InstallPrompt />
     </LanguageProvider>
   );
 }
