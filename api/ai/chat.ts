@@ -1,13 +1,24 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-async function callOpenAI(messages: Array<{ role: string; content: string }>, maxTokens = 512) {
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+async function callGemini(systemMsg: string, history: Array<{ role: string; content: string }>, maxTokens = 512) {
+  const key = process.env.GEMINI_API_KEY;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+  const contents = history.map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+  const r = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: "gpt-4o-mini", messages, max_tokens: maxTokens }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemMsg }] },
+      contents,
+      generationConfig: { maxOutputTokens: maxTokens },
+    }),
   });
-  if (!r.ok) { const t = await r.text(); throw new Error(`OpenAI ${r.status}: ${t.slice(0,200)}`); }
-  return r.json() as Promise<{ choices: Array<{ message: { content: string } }> }>;
+  if (!r.ok) { const t = await r.text(); throw new Error(`Gemini ${r.status}: ${t.slice(0,200)}`); }
+  const data = await r.json() as { candidates: Array<{ content: { parts: Array<{ text: string }> } }> };
+  return data.candidates[0]?.content?.parts[0]?.text ?? "";
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -53,13 +64,7 @@ Activities available: ${activityList || "various Bologna activities"}
 Activities in their itinerary: ${savedList || "none yet"}`;
 
   try {
-    const completion = await callOpenAI([
-      { role: "system", content: systemMsg },
-      ...messages,
-    ], 512);
-
-    const content = completion.choices[0]?.message?.content ?? "";
-
+    const content = await callGemini(systemMsg, messages, 512);
     if (!content.trim()) {
       res.json({ success: false, error: "Empty response" });
       return;
