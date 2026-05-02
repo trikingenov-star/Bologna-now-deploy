@@ -1,0 +1,24 @@
+{
+  "name": "Bologna Now",
+  "short_name": "Bologna Now",
+  "description": "La tua guida smart di Bologna",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5ede4",
+  "theme_color": "#c0522a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
