@@ -1,9 +1,14 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+async function callOpenAI(messages: Array<{ role: string; content: string }>, maxTokens = 800) {
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: "gpt-4o-mini", messages, max_tokens: maxTokens }),
+  });
+  if (!r.ok) { const t = await r.text(); throw new Error(`OpenAI ${r.status}: ${t.slice(0,200)}`); }
+  return r.json() as Promise<{ choices: Array<{ message: { content: string } }> }>;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") { res.status(405).end(); return; }
@@ -41,14 +46,10 @@ Respond ${isItalian ? "in Italian" : "in English"} with:
 {"description":"3-4 sentences vivid immersive experience, max 80 words","duration":"visit duration","localTips":["tip1","tip2","tip3"],"bestTime":"best time and why"}`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemMsg },
-        { role: "user", content: userMsg },
-      ],
-      max_tokens: 800,
-    });
+    const completion = await callOpenAI([
+      { role: "system", content: systemMsg },
+      { role: "user", content: userMsg },
+    ], 800);
 
     const rawContent = completion.choices[0]?.message?.content ?? "";
 
@@ -66,7 +67,8 @@ Respond ${isItalian ? "in Italian" : "in English"} with:
     const detail = JSON.parse(jsonMatch[0]);
     res.json({ success: true, detail });
   } catch (err) {
-    console.error("AI activity detail failed:", err);
-    res.json({ success: false, error: "AI service unavailable" });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("AI activity detail failed:", msg);
+    res.json({ success: false, error: msg });
   }
 }
