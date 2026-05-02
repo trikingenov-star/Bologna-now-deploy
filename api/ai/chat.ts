@@ -1,9 +1,14 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+async function callOpenAI(messages: Array<{ role: string; content: string }>, maxTokens = 512) {
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: "gpt-4o-mini", messages, max_tokens: maxTokens }),
+  });
+  if (!r.ok) { const t = await r.text(); throw new Error(`OpenAI ${r.status}: ${t.slice(0,200)}`); }
+  return r.json() as Promise<{ choices: Array<{ message: { content: string } }> }>;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") { res.status(405).end(); return; }
@@ -48,14 +53,10 @@ Activities available: ${activityList || "various Bologna activities"}
 Activities in their itinerary: ${savedList || "none yet"}`;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemMsg },
-        ...messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-      ],
-      max_tokens: 512,
-    });
+    const completion = await callOpenAI([
+      { role: "system", content: systemMsg },
+      ...messages,
+    ], 512);
 
     const content = completion.choices[0]?.message?.content ?? "";
 
@@ -65,7 +66,8 @@ Activities in their itinerary: ${savedList || "none yet"}`;
     }
     res.json({ success: true, message: content });
   } catch (err) {
-    console.error("AI chat failed:", err);
-    res.json({ success: false, error: "AI service unavailable" });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("AI chat failed:", msg);
+    res.json({ success: false, error: msg });
   }
 }
